@@ -100,18 +100,25 @@ python Parser.py < input.txt > ast_output.txt
 ### Input
 
 ```text
-x := 3;
-y := x + 4 * 2;
-if y > 5 then
-    Put(y);
+if y then
+    z := 10;
 else
-    Put(0);
+    z := 20;
+    x := y;
 end if;
 ```
 
 ### Output
 
 The program prints the AST representation for the full block, including the assignment nodes, the conditional node, and the nested expressions.
+```text
+Block([
+    If(Identifier(y),
+        Block([Assign(Identifier(z),Integer(10))]),
+        Block([Assign(Identifier(z),Integer(20)),Assign(Identifier(x),Identifier(y))])
+    )
+])
+```
 
 
 ##  Notes
