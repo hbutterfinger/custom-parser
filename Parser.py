@@ -1,5 +1,5 @@
 from ASTNodeDefs import *
-from typing import List, Tuple, Union, Set
+from typing import List, Tuple, Union
 import re
 
 """
@@ -50,7 +50,7 @@ class Lexer:
         Tokenizes the input code into a list of tokens.
         Each token is represented as a tuple (token_type, token_value).
         """
-
+        self.tokens = []
         for mo in self.token_regex.finditer(self.code):
             if mo is None:
                 raise RuntimeError(f"Unexpected character") #checks for empty mo
@@ -115,7 +115,7 @@ class Parser:
         self.expect("EOF")
         return block
 
-    def parse_block(self, terminators: List[str] | None = None) -> Block:
+    def parse_block(self, terminators: List[str] = None) -> Block:
         statements: List[ASTNode] = []
 
         while True:
