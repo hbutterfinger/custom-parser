@@ -27,6 +27,7 @@ class Lexer:
             ("LE", r"<="),
             ("GE", r">="),
             ("NE", r"/="),
+            ("EQ", r"="),
             ("LT", r"<"),
             ("GT", r">"),
             ("PLUS", r"\+"),
@@ -114,14 +115,17 @@ class Parser:
         self.expect("EOF")
         return block
 
-    def parse_block(self, terminators: Set[str] | None = None) -> Block:
+    def parse_block(self, terminators: List[str] | None = None) -> Block:
         statements: List[ASTNode] = []
-        # proceeds as normal if there are not specified terminators
-        if terminators is None:
-            statements.append(self.parse_statement())
-        else: # with specified terminators, parsing stops when it hits a terminator
-            while self.current_token()[0] not in terminators:
-                statements.append(self.parse_statement())
+
+        while True:
+            token_type, _ = self.current_token()
+
+            if token_type == "EOF":
+                break
+            if terminators is not None and token_type in terminators:
+                break
+            statements.append(self.parse_statement()) # only continues when both conditions are met 
         
         # wrap the statement list in a Block AST node
         return Block(statements)
@@ -243,7 +247,7 @@ class Parser:
             comparisons.append(self.parse_comparison())
 
         if len(comparisons) > 1: # for multiple comparisons
-            result = Or(comparisons)
+            result = And(comparisons)
         else: # for only one comparison
             result = comparisons[0]
         return result
