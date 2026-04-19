@@ -8,6 +8,12 @@ Feel free to modify anything in this file as needed
 To run tests, use Verify.py
 """
 
+class SemanticError(Exception):
+    """
+    Exception used for semantic errors during parsing.
+    RuntimeErrors used from last time will be replaced by SemanticError. 
+    """
+    pass
 
 class Lexer:
     """
@@ -20,6 +26,7 @@ class Lexer:
         self.tokens: List[Tuple[str, str]] = []  # List of (token_type, token_value)
         self.token_specs = [
             ("ASSIGN", r":="),
+            ("COLON", r":"),
             ("SEMICOLON", r";"),
             ("COMMENT", r"--[^\n]*"),
             ("SKIP", r"[\s]+"),
@@ -74,6 +81,9 @@ class Lexer:
                     "and": "AND",
                     "or": "OR",
                     "mod": "MOD",
+                    "var": "VAR",
+                    "Integer": "TYPE",
+                    "Boolean": "TYPE",
                     "True": "BOOLEAN",
                     "False": "BOOLEAN",
                 } # dict for reserved keywords
@@ -89,6 +99,7 @@ class Parser:
     def __init__(self, tokens: List[Tuple[str, str]]):
         self.tokens = tokens
         self.pos = 0  # Current position in the token list
+        self.scopes: List[dict[str, str]] = []
 
     def current_token(self) -> Tuple[str, str]:
         # Returns the current token without consuming it
@@ -106,33 +117,46 @@ class Parser:
             self.advance()
             return (current_type, current_value)
         else:
-            raise RuntimeError(
+            raise SemanticError( 
                 f"Expected token type {token_type}, got type {current_type}"
             )
 
     def parse(self) -> ASTNode:
-        block = self.parse_block()
-        self.expect("EOF")
-        return block
+        try:
+            self.scopes = [{}] # initializes scope to empty (global)
+            block = self.parse_block(new_scope=False) # no new scopes are needed, using the global scope instead
+            self.expect("EOF")
+            return block
+        except Exception:
+            return Error
 
-    def parse_block(self, terminators: List[str] = None) -> Block:
-        statements: List[ASTNode] = []
-
-        while True:
-            token_type, _ = self.current_token()
-
-            if token_type == "EOF":
-                break
-            if terminators is not None and token_type in terminators:
-                break
-            statements.append(self.parse_statement()) # only continues when both conditions are met 
+    def parse_block(self, terminators: List[str] = None, new_scope: bool = True) -> Block:
+        if new_scope:
+            self.scopes.append({}) # adds new scope to end of self.scopes
         
-        # wrap the statement list in a Block AST node
-        return Block(statements)
+        try:
+            statements: List[ASTNode] = []
+
+            while True:
+                token_type, _ = self.current_token()
+
+                if token_type == "EOF":
+                    break
+                if terminators is not None and token_type in terminators:
+                    break
+                statements.append(self.parse_statement()) # only continues when both conditions are met 
+            
+            # wrap the statement list in a Block AST node
+            return Block(statements)
+        finally:
+            if new_scope:
+                self.scopes.pop() # removes the last scope added since we are done with the block
 
     def parse_statement(self) -> Union[Assign, Put, If, WhileLoop, ForLoop]:
         # chooses how to parse based on token type
         token_type, _ = self.current_token()
+        if token_type == "VAR":
+            return self.parse_decl_statement()
         if token_type == "ID":
             return self.parse_assign_statement()
         if token_type == "PUT":
@@ -144,7 +168,10 @@ class Parser:
         if token_type == "FOR":
             return self.parse_for_loop()
         # other types are invalid
-        raise RuntimeError(f"Unexpected token type {token_type} in statement")
+        raise SemanticError(f"Unexpected token type {token_type} in statement")
+
+    def parse_decl_statement(self) -> Decl:
+        pass
 
     def parse_assign_statement(self) -> Assign: 
         # <ID> := <expr>;
@@ -320,6 +347,19 @@ class Parser:
             return expr
         
         # everything else is invalid
-        raise RuntimeError(f"Unexpected token type {token_type} in primary")
-    
-        # More parsing methods can be added as needed
+        raise SemanticError(f"Unexpected token type {token_type} in primary")
+
+    # More parsing methods can be added as needed
+
+    # helps to enform semantic rules
+    def declare(self, name: str, type_name: str) -> None:
+        # for variable declaration before use
+        pass
+
+    def in_current_scope(self, name: str) -> bool:
+        # helper to check if variable is in scope
+        pass
+
+    def find_var(self, name: str):
+        # finds the scope the input var is in, return None if does not exist
+        pass
