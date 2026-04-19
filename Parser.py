@@ -187,7 +187,7 @@ class Parser:
         if self.current_token()[0] == "ASSIGN":
             self.advance()
             initial_value = self.parse_expr()
-            expr_type = self.find_type(initial_value)
+            expr_type = self.check_type(initial_value)
             if expr_type != declared_type:
                 raise SemanticError("Type mismatch") # raise error when the expected type for node initial_value does not match the declared_type
 
@@ -401,6 +401,51 @@ class Parser:
                 return scope[name] #returns the value of name in closest scope
         return None
     
-    def find_type(self, node: ASTNode) -> str:
-        # returns the correct type based on the input node
-        pass
+    def check_type(self, node: ASTNode) -> str:
+        # returns the expected type for the expression based on the input node
+        # checks for type compatibility before returning type
+        if isinstance(node, Integer):
+            return "Integer"
+        if isinstance(node, Boolean):
+            return "Boolean"
+        
+        if isinstance(node, Identifier):
+            var_type = self.lookup(node.name)
+            if var_type is None:
+                raise SemanticError(f"Variable {node.name} used before declaration")
+            return var_type
+        
+        # OR expression cannot be empty, operands must be boolean
+        if isinstance(node, Or):
+            if len(node.conjunctions) == 0:
+                raise SemanticError("Empty OR expression")
+            for conj in node.conjunctions:
+                if self.check_type(conj) != "Boolean":
+                    raise SemanticError("OR operands must be Boolean")
+            return "Boolean"
+        
+        # AND expression cannot be empty, operands must be boolean
+        if isinstance(node, And):
+            if len(node.comparisons) == 0:
+                raise SemanticError("Empty AND expression")
+            for comp in node.comparisons:
+                if self.check_type(comp) != "Boolean":
+                    raise SemanticError("AND operands must be Boolean")
+            return "Boolean"
+        
+        if isinstance(node, Comparison): # comparison
+            if self.check_type(node.left) != "Integer" or self.check_type(node.right) != "Integer":
+                raise SemanticError("Comparison operands must be Integer")
+            return "Boolean"
+        
+        if isinstance(node, Term): # arithmetic
+            for factor in node.factors:
+                if self.check_type(factor) != "Integer":
+                    raise SemanticError("Arithmetic operands must be Integer")
+            return "Integer"
+        
+        if isinstance(node, Factor): #arithmetic
+            for primary in node.primaries:
+                if self.check_type(primary) != "Integer":
+                    raise SemanticError("Arithmetic operands must be Integer")
+            return "Integer"
